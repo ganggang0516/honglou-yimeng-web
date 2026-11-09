@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="红楼一梦 · 网页版：整本红楼梦装进一个小工具。脂评本八十回、程乙本一百二十回，人物关系、诗词、吃食、药方、大事、脂批落位，一框全能搜。">
+<title>红楼一梦 · 整本红楼梦小工具（网页版）</title>
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📕</text></svg>">
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="brand" onclick="go('home')">红 楼 一 梦</div>
+    <div class="bench-switch" id="benchSwitch">
+      <button data-bench="zhi" class="active">脂评本</button>
+      <button data-bench="cheng">程乙本</button>
+    </div>
+  </header>
+
+  <nav class="tabs" id="tabs">
+    <button data-tab="home" class="active">首页</button>
+    <button data-tab="search">搜</button>
+    <button data-tab="people">人</button>
+    <button data-tab="gather">采</button>
+    <button data-tab="events">事</button>
+    <button data-tab="read">读</button>
+    <button data-tab="card">卡</button>
+  </nav>
+
+  <main id="main">
+    <!-- 首页 -->
+    <section id="tab-home" class="tab-view active">
+      <div class="hero">
+        <div class="award">奖 · 国风 vibe 编译 · 向原著致敬的复刻版</div>
+        <h1>整本红楼梦<br>塞进一个小工具</h1>
+        <p class="hero-sub">两个底本 · 想读哪本切哪本</p>
+        <table class="stats" id="statsTable">
+          <thead><tr><th></th><th>脂评本</th><th>程乙本</th></tr></thead>
+          <tbody id="statsBody"></tbody>
+        </table>
+        <div class="hero-note" id="heroNote"></div>
+        <div class="hero-badge">离线可用 · 不要账号 · 点击下方标签开始</div>
+      </div>
+      <div class="home-cards">
+        <div class="hcard" onclick="go('search')"><b>🔍 一个框什么都能搜</b><span>人物 · 诗词 · 吃食 · 药方 · 事件 · 脂批 · 原文</span></div>
+        <div class="hcard" onclick="go('people')"><b>👤 人 · 关系图</b><span>点谁，就以谁为中心铺开，每条关系标着第几回</span></div>
+        <div class="hcard" onclick="go('gather')"><b>🍵 采 · 诗词吃食药方</b><span>每一样都附原文，点一下就跳过去</span></div>
+        <div class="hcard" onclick="go('events')"><b>📌 事 · 大事记</b><span>按回排好，点开就跳到原文</span></div>
+        <div class="hcard" onclick="go('read')"><b>📖 读 · 整本原文</b><span>脂批跟着原文落位，红色「批」点开就看</span></div>
+        <div class="hcard" onclick="go('card')"><b>🎴 卡 · 人物卡片</b><span>喜欢谁，给谁做一张可保存的卡片</span></div>
+      </div>
+      <p class="colophon">灵感来自小红书 @浮生小记 的「红楼一梦」小工具（国风 vibe 国风潜力奖）。这是功能复刻版，正文与脂批数据来自公开语料整理。</p>
+    </section>
+
+    <!-- 搜索 -->
+    <section id="tab-search" class="tab-view">
+      <div class="search-hero">
+        <h2>一个框<br>什么都能搜</h2>
+        <div class="search-bar">
+          <span class="s-ico">🔍</span>
+          <input id="searchInput" placeholder="搜「葬花」，事、诗、原文一起出来" autocomplete="off">
+        </div>
+        <div class="chips" id="hotChips"></div>
+        <div class="s-tip">人物 · 诗词 · 吃食 · 药方 · 事件 · 脂批 · 原文正文</div>
+      </div>
+      <div id="searchResults" class="results"></div>
+    </section>
+
+    <!-- 人 -->
+    <section id="tab-people" class="tab-view">
+      <div class="sec-head">
+        <h2 id="graphTitle">点谁 就以谁为中心铺开</h2>
+        <input id="personFilter" placeholder="找人…" autocomplete="off">
+      </div>
+      <div class="graph-wrap">
+        <svg id="relGraph" viewBox="0 0 680 520"></svg>
+      </div>
+      <div class="graph-note" id="graphNote"></div>
+      <div class="person-detail" id="personDetail"></div>
+      <div class="person-list" id="personList"></div>
+    </section>
+
+    <!-- 采 -->
+    <section id="tab-gather" class="tab-view">
+      <div class="sec-head">
+        <h2>诗词 · 吃食 · 药方</h2>
+        <div class="subtabs" id="gatherTabs">
+          <button data-g="poems" class="active">诗词</button>
+          <button data-g="foods">吃食</button>
+          <button data-g="meds">药方</button>
+        </div>
+      </div>
+      <div class="gather-count" id="gatherCount"></div>
+      <div id="gatherList" class="gather-list"></div>
+      <div id="gatherDetail" class="detail-card" style="display:none"></div>
+    </section>
+
+    <!-- 事 -->
+    <section id="tab-events" class="tab-view">
+      <div class="sec-head"><h2>大事记 · 按回排好</h2></div>
+      <div class="ev-count" id="evCount"></div>
+      <div id="eventList" class="event-list"></div>
+    </section>
+
+    <!-- 读 -->
+    <section id="tab-read" class="tab-view">
+      <div class="sec-head">
+        <h2 id="readTitle">整本原文 · 脂批跟着落位</h2>
+        <button class="toggle-anno" id="annoToggle" onclick="toggleAnnos()">批语：开</button>
+      </div>
+      <div id="readSub" class="read-sub"></div>
+      <div id="readerBody" class="reader"></div>
+    </section>
+
+    <!-- 卡 -->
+    <section id="tab-card" class="tab-view">
+      <div class="sec-head"><h2>给喜欢的人 · 做一张卡片</h2></div>
+      <div class="card-bar">
+        <select id="cardPick"></select>
+        <button onclick="genCard()">生成卡片</button>
+      </div>
+      <canvas id="cardCanvas" width="690" height="920" style="max-width:345px;width:100%"></canvas>
+      <div class="card-actions"><button onclick="saveCard()">保存为图片</button></div>
+    </section>
+  </main>
+
+  <div id="annoPop" class="anno-pop" style="display:none">
+    <div class="anno-head" id="annoHead"></div>
+    <div class="anno-body" id="annoBody"></div>
+    <button class="anno-close" onclick="closeAnno()">收起</button>
+  </div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
