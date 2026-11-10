@@ -14,6 +14,7 @@ const state = {
 
 const ANNO_TYPE_NOTE = 'note';   // 校记
 const ANNO_LABEL = { zhi: '脂评本 · 八十回', cheng: '程乙本 · 一百二十回' };
+const TIER_LABEL = { 1: '严丝合缝', 2: '认得出', 3: '挂不回' };
 
 /* ---------- 数据加载 ---------- */
 async function loadTexts(bench) {
@@ -38,11 +39,19 @@ async function loadCurated() {
 }
 
 /* ---------- 统计 ---------- */
+async function loadAnnoMeta() {
+  if (state.data.annometa) return state.data.annometa;
+  const res = await fetch('data/annometa.json');
+  state.data.annometa = await res.json();
+  return state.data.annometa;
+}
 async function renderStats() {
-  const [zhi, cheng, people, cur] = await Promise.all([loadTexts('zhi'), loadTexts('cheng'), loadPeople(), loadCurated()]);
+  const [zhi, cheng, people, cur, meta] = await Promise.all([loadTexts('zhi'), loadTexts('cheng'), loadPeople(), loadCurated(), loadAnnoMeta()]);
   const zChars = zhi.reduce((a, c) => a + c.paras.reduce((b, p) => b + p.text.replace('◆', '').length, 0), 0);
   const cChars = cheng.reduce((a, c) => a + c.paras.reduce((b, p) => b + p.text.length, 0), 0);
-  const zAnnos = zhi.reduce((a, c) => a + c.paras.reduce((b, p) => b + p.annos.length, 0), 0);
+  const t = meta.tier || {};
+  const tSum = (t['严丝合缝'] || 0) + (t['认得出'] || 0) + (t['挂不回'] || 0);
+  const pct = n => tSum ? Math.round(n / tSum * 100) : 0;
   const rows = [
     ['正文', `${(zChars / 10000).toFixed(1)} 万字`, `${(cChars / 10000).toFixed(1)} 万字`],
     ['人物', `${people.persons.length} 位`, `${people.persons.length} 位`],
@@ -50,9 +59,10 @@ async function renderStats() {
     ['诗词', `${cur.poems.length} 首`, `${cur.poems.length} 首`],
     ['吃食', `${cur.foods.length} 道`, `${cur.foods.length} 道`],
     ['药方', `${cur.meds.length} 帖`, `${cur.meds.length} 帖`],
+    ['脂批', `${meta.totalAnnos} 条（仅脂评本）`, `—`],
   ];
   $('#statsBody').innerHTML = rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('');
-  $('#heroNote').textContent = `脂砚斋等批语 ${zAnnos} 条，跟着原文落位`;
+  $('#heroNote').textContent = `脂批 ${meta.totalAnnos} 条落位：严丝合缝 ${pct(t['严丝合缝'] || 0)}% · 认得出 ${pct(t['认得出'] || 0)}% · 挂不回 ${pct(t['挂不回'] || 0)}%，批语多出自甲戌本与庚辰本`;
 }
 
 /* ---------- 导航 ---------- */
@@ -338,6 +348,26 @@ async function openChapter(num) {
     }
     return `<p>${out}</p>`;
   }).join('');
+  // 回末单列：挂不回的批语
+  if (state.bench === 'zhi') {
+    const unplaced = [];
+    c.paras.forEach((p, pi) => p.annos.forEach((a, ai) => {
+      if (a.tier === 3) unplaced.push({ a, pi, ai });
+    }));
+    if (unplaced.length) {
+      html += `<div class="chap-unplaced"><div class="up-head">挂不回的批语 · ${unplaced.length} 条</div>
+        <div class="up-tip">这些批语引的文字找不到原文对应——多是脂砚斋引的诗句、伏笔后文的感叹，原版把它们单列在每回末尾</div>` +
+        unplaced.map((u, k) => {
+          const ctx = anchorContext(c.paras[u.pi], u.ai);
+          return `<div class="up-item" onclick="showAnno(${num},${u.pi},${u.ai})">
+            <span class="up-n">${k + 1}</span>
+            <div class="up-main"><div class="up-txt">${esc(u.a.text.slice(0, 80))}${u.a.text.length > 80 ? '…' : ''}</div>
+            <div class="up-ctx">落位：…${esc(ctx)}…</div></div>
+            ${(u.a.src || []).length ? `<span class="up-src">${u.a.src.join('·')}</span>` : ''}
+          </div>`;
+        }).join('') + `</div>`;
+    }
+  }
   html += `<div class="read-nav">
     <button ${num <= 1 ? 'disabled' : ''} onclick="openChapter(${num - 1})">← 上一回</button>
     <button ${num >= text.length ? 'disabled' : ''} onclick="openChapter(${num + 1})">下一回 →</button>
@@ -361,13 +391,29 @@ async function openReaderAt(ch, pi, q) {
     }
   }
 }
+function anchorContext(para, ai) {
+  // ◆ 第 ai 个批语前后各取一段文字作为落位上下文
+  const parts = para.text.split('◆');
+  const before = parts[Math.min(ai, parts.length - 1)] || '';
+  const after = parts[ai + 1] || '';
+  const ctx = (before.slice(-10) + after.slice(0, 12)).replace('◆', '');
+  return ctx || para.text.replace('◆', '').slice(0, 16);
+}
 function showAnno(ch, pi, ai) {
   const text = state.data[state.bench];
   const c = text.find(x => x.num === ch);
   const a = c.paras[pi] && c.paras[pi].annos[ai];
   if (!a) return;
   const isNote = a.icons && a.icons.includes('note');
-  $('#annoHead').textContent = isNote ? '校 记' : '脂 批';
+  let badges = '';
+  if (isNote) {
+    $('#annoHead').innerHTML = '校 记';
+  } else {
+    (a.src || []).forEach(s => badges += `<span class="a-badge a-src">${s}本</span>`);
+    if (a.pos) badges += `<span class="a-badge a-pos">${a.pos}</span>`;
+    if (a.tier) badges += `<span class="a-badge a-t${a.tier}">${TIER_LABEL[a.tier]}</span>`;
+    $('#annoHead').innerHTML = `脂 批 <span class="a-badges">${badges}</span>`;
+  }
   $('#annoBody').textContent = a.text;
   $('#annoPop').style.display = 'block';
 }
